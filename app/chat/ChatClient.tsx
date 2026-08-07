@@ -57,8 +57,9 @@ export function ChatClient() {
     initedRef.current = true;
     const savedProfile = loadProfile();
     const savedRichiesta = loadRichiesta();
-    setState((s) => ({ ...s, ...(savedProfile ?? {}), ...(savedRichiesta ?? {}) }));
-    beginStep(STEPS[0], 0);
+    const merged: ChatState = { ...emptyChatState(), ...(savedProfile ?? {}), ...(savedRichiesta ?? {}) };
+    setState(merged);
+    beginStep(STEPS[0], 0, merged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -79,10 +80,10 @@ export function ChatClient() {
     setActiveIndex(index);
   }
 
-  function advanceFrom(index: number) {
+  function advanceFrom(index: number, currentState: ChatState) {
     const next = index + 1;
     if (next >= STEPS.length) {
-      void handleSubmit();
+      void handleSubmit(currentState);
       return;
     }
     const current = STEPS[index];
@@ -90,19 +91,26 @@ export function ChatClient() {
     if (current.section === "profilo" && nextStep.section === "richiesta") {
       pushAi("Ora raccontami la tua giornata di oggi.");
     }
-    beginStep(nextStep, next);
+    beginStep(nextStep, next, currentState);
   }
 
+  // Le funzioni sotto calcolano esplicitamente lo stato aggiornato (nextState) e lo passano
+  // avanti invece di leggere 'state' dalla closure: 'setState' e' asincrono, quindi se
+  // avanzassimo (ed eventualmente inviassimo la richiesta) subito dopo averlo chiamato, la
+  // risposta userebbe ancora il valore VECCHIO. Bug reale osservato: l'ultima nota libera
+  // scritta prima dell'invio (es. "spiaggia a Capoliveri") non arrivava mai al server.
   function chooseSingle(step: StepDef, index: number, value: string, label: string) {
-    setState((s) => setStepValue(s, step, value));
+    const nextState = setStepValue(state, step, value);
+    setState(nextState);
     pushUser(label);
-    advanceFrom(index);
+    advanceFrom(index, nextState);
   }
 
   function chooseBoolean(step: StepDef, index: number, value: boolean, label: string) {
-    setState((s) => setStepValue(s, step, value));
+    const nextState = setStepValue(state, step, value);
+    setState(nextState);
     pushUser(label);
-    advanceFrom(index);
+    advanceFrom(index, nextState);
   }
 
   function toggleMulti(value: string) {
@@ -110,18 +118,20 @@ export function ChatClient() {
   }
 
   function confirmMulti(step: StepDef, index: number) {
-    setState((s) => setStepValue(s, step, pendingMulti));
+    const nextState = setStepValue(state, step, pendingMulti);
+    setState(nextState);
     pushUser(optionLabel(step, pendingMulti));
-    advanceFrom(index);
+    advanceFrom(index, nextState);
   }
 
   function confirmText(step: StepDef, index: number, value: string) {
-    setState((s) => setStepValue(s, step, value));
+    const nextState = setStepValue(state, step, value);
+    setState(nextState);
     pushUser(value.trim() ? value.trim() : "(nessuna nota)");
-    advanceFrom(index);
+    advanceFrom(index, nextState);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(currentState: ChatState) {
     setPhase("loading");
     setErrorMsg(null);
     const loadingId = nextId();
@@ -130,15 +140,15 @@ export function ChatClient() {
 
     // Salviamo lo stato corrente cosi' torna precompilato anche nelle pagine
     // classiche di onboarding/richiesta (stesso localStorage, stesso formato).
-    saveProfile(state);
-    saveRichiesta(state);
+    saveProfile(currentState);
+    saveRichiesta(currentState);
 
     try {
-      const richiesta_giorno = buildRichiestaGiornoText(state, state);
+      const richiesta_giorno = buildRichiestaGiornoText(currentState, currentState);
       const data = await fetchRecommendations({
-        profile: toApiProfile(state),
+        profile: toApiProfile(currentState),
         richiesta_giorno,
-        affollamento_massimo: state.affollamento_massimo,
+        affollamento_massimo: currentState.affollamento_massimo,
         limit: 10
       });
       saveResults(data);
@@ -291,7 +301,7 @@ export function ChatClient() {
       {phase === "error" && (
         <div className="chat-composer">
           <div className="row">
-            <button type="button" className="chip" onClick={() => void handleSubmit()}>
+            <button type="button" className="chip" onClick={() => void handleSubmit(state)}>
               Riprova
             </button>
           </div>
