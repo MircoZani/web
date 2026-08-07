@@ -294,3 +294,162 @@ textarea {
   color: var(--muted);
   margin-bottom: 0.75rem;
 }
+
+/* Route sperimentale /chat: onboarding + richiesta come conversazione.
+   Riusa le variabili e le classi esistenti (.chip, .btn, .conversation) cosi'
+   resta coerente con lo stile attuale; qui aggiungiamo solo il layout a bolle. */
+
+.chat-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.chat-prefs-btn {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.chat-bubble.ai {
+  align-self: flex-start;
+  background: var(--accent-soft);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble .conversation {
+  font-size: 0.95rem;
+}
+
+.chat-composer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 1rem;
+}
+
+.chat-text-composer input[type="text"] {
+  margin-bottom: 0.75rem;
+}
+
+.chat-rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chat-rec-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.chat-rec-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.prefs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 47, 51, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.prefs-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.prefs-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.prefs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.prefs-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.prefs-row-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.prefs-edit-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.prefs-edit-link:hover {
+  text-decoration: underline;
+}
+
+.prefs-chip {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.prefs-chip.selected {
+  opacity: 1;
+}
+
+.prefs-text-value {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
