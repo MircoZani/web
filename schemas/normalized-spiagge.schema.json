@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourelba.local/schemas/normalized-spiagge.schema.json",
+  "title": "YourElba Normalized Beaches Dataset",
+  "type": "object",
+  "required": ["meta", "stats", "spiagge"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["destinazione", "versione", "generated_at"],
+      "properties": {
+        "destinazione": { "type": "string" },
+        "versione": { "type": "string" },
+        "fonte": { "type": ["string", "null"] },
+        "ultima_verifica": { "type": ["string", "null"] },
+        "generated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "stats": {
+      "type": "object",
+      "required": ["beaches_total"],
+      "properties": {
+        "beaches_total": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "spiagge": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/spiaggiaNormalizzata" }
+    }
+  },
+  "$defs": {
+    "spiaggiaNormalizzata": {
+      "type": "object",
+      "required": ["id", "nome", "zona", "info_pratiche", "activity_tags", "affollamento"],
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "zona": { "type": "string" },
+        "comune": { "type": ["string", "null"] },
+        "localita": { "type": ["string", "null"] },
+        "tipo_fondale": { "type": ["string", "null"] },
+        "lunghezza_m": { "type": ["number", "null"] },
+        "esposizione_venti": { "type": ["string", "null"] },
+        "esposizione_cardinale": { "type": ["string", "null"] },
+        "esposizione_venti_esposta_a": {
+          "type": "array",
+          "description": "Direzioni cardinali a cui la spiaggia e' effettivamente esposta al vento, derivate dall'orientamento geometrico e rifinite dal testo esposizione_venti.",
+          "items": { "type": "string", "enum": ["n", "ne", "e", "se", "s", "so", "o", "no"] }
+        },
+        "affollamento": {
+          "type": "object",
+          "required": ["livello_generale"],
+          "properties": {
+            "livello_generale": {
+              "type": "string",
+              "enum": ["molto basso", "basso", "basso-medio", "medio", "medio-alto", "alto", "molto alto"]
+            },
+            "note": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        },
+        "info_pratiche": {
+          "type": "object",
+          "required": ["reachability", "trail_difficulty", "naturismo_tollerato"],
+          "properties": {
+            "accessibilita_disabili": { "type": ["boolean", "null"] },
+            "adatto_bambini": { "type": ["boolean", "null"] },
+            "cani_ammessi": { "type": ["boolean", "null"] },
+            "raggiungibile_via_terra": { "type": ["boolean", "null"] },
+            "difficolta_accesso": { "type": ["integer", "null"], "minimum": 1, "maximum": 4 },
+            "reachability": {
+              "type": "string",
+              "enum": ["land", "sea_only", "unknown"]
+            },
+            "trail_difficulty": {
+              "type": "string",
+              "enum": ["easy_or_none", "moderate", "steep", "very_steep_or_impervious"]
+            },
+            "naturismo_tollerato": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "activity_tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "punteggi_categorie": {
+          "type": "object",
+          "description": "Punteggio 0-3 per categoria, curato a mano da Mirco (0=non si applica, 1=sotto la norma, 2=nella norma, 3=tra le migliori dell'isola per questa caratteristica).",
+          "properties": {
+            "adatto_famiglie": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "adatto_coppie": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "giovani_ragazzi": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "snorkeling_immersione": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "sport_acquatici": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "natura_selvaggia": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "rilassante_tranquilla": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "culturale_caratteristica": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "comfort_servizi": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "belle_spettacolari": { "type": "integer", "minimum": 0, "maximum": 3 }
+          },
+          "additionalProperties": false
+        },
+        "indicazioni": { "type": ["string", "null"] },
+        "note_qualitative": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

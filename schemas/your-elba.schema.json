@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourelba.local/schemas/your-elba.schema.json",
+  "title": "YourElba Domain Schema",
+  "type": "object",
+  "required": [
+    "meta",
+    "utente",
+    "contesto_momento",
+    "catalogo",
+    "sessione_raccomandazione"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["destinazione", "versione", "ultima_verifica"],
+      "properties": {
+        "destinazione": { "type": "string", "const": "Isola d'Elba" },
+        "versione": { "type": "string" },
+        "ultima_verifica": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "utente": {
+      "type": "object",
+      "required": ["id", "profilo"],
+      "properties": {
+        "id": { "type": "string" },
+        "profilo": {
+          "type": "object",
+          "required": ["lingua", "folla", "mobilita_livello"],
+          "properties": {
+            "lingua": {
+              "type": "string",
+              "enum": ["it", "en", "de", "fr", "nl"]
+            },
+            "folla": {
+              "type": "string",
+              "enum": ["evita", "indifferente", "cerca_movida"]
+            },
+            "mobilita_livello": {
+              "type": "string",
+              "enum": ["alta", "media", "bassa"]
+            },
+            "mobilita_ridotta": { "type": "boolean" },
+            "con_bambini": { "type": "boolean" },
+            "con_cane": { "type": "boolean" },
+            "richiesta_esplicita_naturismo": { "type": "boolean" },
+            "attivita_preferite": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "snorkeling",
+                  "trekking",
+                  "relax",
+                  "sport_acquatici",
+                  "cultura",
+                  "family_time"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "contesto_momento": {
+      "type": "object",
+      "required": ["mezzo_trasporto", "meteo"],
+      "properties": {
+        "mezzo_trasporto": {
+          "type": "string",
+          "enum": ["auto", "scooter", "bus", "barca", "a_piedi"]
+        },
+        "meteo": {
+          "type": "object",
+          "required": ["vento_direzione", "vento_intensita"],
+          "properties": {
+            "vento_direzione": {
+              "type": "string",
+              "enum": [
+                "tramontana",
+                "grecale",
+                "maestrale",
+                "ponente",
+                "libeccio",
+                "scirocco"
+              ]
+            },
+            "vento_intensita": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "tempo_disponibile_ore": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "catalogo": {
+      "type": "object",
+      "required": ["spiagge"],
+      "properties": {
+        "spiagge": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/spiaggia" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessione_raccomandazione": {
+      "type": "object",
+      "required": ["query_utente", "interpretazione", "raccomandazioni"],
+      "properties": {
+        "query_utente": { "type": "string" },
+        "interpretazione": { "$ref": "#/$defs/interpretazione" },
+        "raccomandazioni": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/raccomandazione" }
+        },
+        "feedback": { "$ref": "#/$defs/feedback" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "spiaggia": {
+      "type": "object",
+      "required": ["id", "nome", "zona", "affollamento", "info_pratiche"],
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "zona": {
+          "type": "string",
+          "enum": ["nord", "sud", "est", "ovest", "centro"]
+        },
+        "tipo_fondale": { "type": "string" },
+        "lunghezza_m": { "type": "number", "minimum": 0 },
+        "esposizione_venti": { "type": "string" },
+        "caratteristiche": {
+          "type": "object",
+          "properties": {
+            "tipo_viaggiatore": { "type": "array", "items": { "type": "string" } },
+            "atmosfera": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        },
+        "affollamento": {
+          "type": "object",
+          "required": ["livello_generale"],
+          "properties": {
+            "livello_generale": {
+              "type": "string",
+              "enum": ["molto basso", "basso", "basso-medio", "medio", "medio-alto", "alto", "molto alto"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "info_pratiche": {
+          "type": "object",
+          "required": ["raggiungibile"],
+          "properties": {
+            "accessibilita_disabili": { "type": "string" },
+            "adatto_bambini": { "type": "string" },
+            "cani_ammessi": { "type": "string" },
+            "raggiungibile": {
+              "type": "string",
+              "enum": ["da terra", "solo via mare"]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "interpretazione": {
+      "type": "object",
+      "required": ["intent", "confidence"],
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": ["trova_spiaggia", "trova_attivita", "combina_spiaggia_attivita"]
+        },
+        "vincoli_estratti": { "type": "object", "additionalProperties": true },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "raccomandazione": {
+      "type": "object",
+      "required": ["spiaggia_id", "attivita", "score", "motivazioni"],
+      "properties": {
+        "spiaggia_id": { "type": "string" },
+        "attivita": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "motivazioni": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "feedback": {
+      "type": "object",
+      "properties": {
+        "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "note": { "type": "string" },
+        "azione": {
+          "type": "string",
+          "enum": ["accettata", "scartata", "salvata_per_dopo"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
