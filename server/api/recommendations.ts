@@ -49,6 +49,58 @@ function detectNamedBeachMentions(text: string, beaches: RecommendationBeach[]):
   return matches;
 }
 
+// Vincolo geografico esplicito ("spiaggia a Capoliveri") o implicito ("qualcosa qui vicino",
+// da risolvere rispetto alla zona di soggiorno). Prima di questa logica 'zona_ammessa'
+// (interpretation-layer) veniva calcolata ma non era collegata a nessun filtro reale: restava
+// un suggerimento "morbido" che l'AI di ranking poteva ignorare, ed è esattamente quello che
+// succedeva in pratica (osservato in test live: "spiaggia a Capoliveri" restituiva comunque le
+// spiagge più forti in assoluto sul nord/ovest). Qui il comune richiesto diventa un filtro
+// deterministico sulle candidate, applicato PRIMA del pre-scoring/ranking AI.
+// Alias -> valore reale del campo 'comune' nel dataset (vedi data/processed/spiagge.normalized.json).
+// Elenco chiuso (8 comuni dell'isola + 2-3 alias molto noti): non tentiamo di riconoscere ogni
+// localita'/frazione (96 valori, molti generici tipo "Lungomare" o "Centro storico") per evitare
+// falsi positivi — coerente con "non complichiamo troppo".
+const COMUNE_ALIASES: Array<{ comune: string; alias: string }> = [
+  { comune: "Marciana Marina", alias: "Marciana Marina" },
+  { comune: "Campo nell'Elba", alias: "Campo nell'Elba" },
+  { comune: "Campo nell'Elba", alias: "Marina di Campo" },
+  { comune: "Rio", alias: "Rio Marina" },
+  { comune: "Rio", alias: "Rio nell'Elba" },
+  { comune: "Porto Azzurro", alias: "Porto Azzurro" },
+  { comune: "Capoliveri", alias: "Capoliveri" },
+  { comune: "Portoferraio", alias: "Portoferraio" },
+  { comune: "Marciana", alias: "Marciana" },
+  { comune: "Rio", alias: "Rio" }
+].sort((a, b) => normalizeForNameMatch(b.alias).length - normalizeForNameMatch(a.alias).length);
+
+const PROXIMITY_PATTERN =
+  /\b(vicino|vicine|vicina|nei dintorni|nelle vicinanze|non troppo lontano|non lontano|qui accanto)\b/i;
+
+function detectRequestedComune(text: string): string | null {
+  const normalizedText = normalizeForNameMatch(text);
+  if (!normalizedText) return null;
+  for (const { comune, alias } of COMUNE_ALIASES) {
+    const normalizedAlias = normalizeForNameMatch(alias);
+    const pattern = new RegExp(`\\b${escapeRegExp(normalizedAlias)}\\b`);
+    if (pattern.test(normalizedText)) return comune;
+  }
+  return null;
+}
+
+// 'richiesta_giorno' arriva gia' assemblato da lib/session.ts (buildRichiestaGiornoText) con un
+// formato fisso e prevedibile: leggiamo solo il pezzo "Zona di soggiorno: ..." e l'eventuale
+// "Note: ..." finale (testo libero dell'utente), cosi' un comune richiesto esplicitamente nelle
+// note non si confonde con la zona di soggiorno (che e' sempre presente ma NON e' una richiesta).
+function extractZonaSoggiornoText(richiestaGiorno: string): string {
+  const match = /Zona di soggiorno:\s*([^.]+)\./.exec(richiestaGiorno);
+  return match?.[1]?.trim() ?? "";
+}
+
+function extractNoteLibereText(richiestaGiorno: string): string {
+  const match = /Note:\s*([\s\S]*)$/.exec(richiestaGiorno);
+  return match?.[1]?.trim() ?? "";
+}
+
 function toBeachDetail(beach: RecommendationBeach, posizione?: number): ShortlistBeachDetail {
   return {
     ...(posizione !== undefined ? { posizione } : {}),
@@ -376,7 +428,24 @@ export async function buildRecommendationsResponse(body: unknown): Promise<{
     const naturismConflict =
       /naturis/i.test(validation.normalized.richiesta_giorno) &&
       validation.normalized.profile.richiesta_esplicita_naturismo !== true;
-    const preScoreResult = preScoreAndFilter(exclusion.included, validation.normalized.profile, preFilterCount, {
+
+    // Filtro geografico deterministico: comune nominato esplicitamente nelle note di oggi, oppure
+    // richiesta di vicinanza ("qui vicino") risolta rispetto alla zona di soggiorno del profilo.
+    const noteLibereText = extractNoteLibereText(validation.normalized.richiesta_giorno);
+    const explicitComune = detectRequestedComune(noteLibereText);
+    const wantsNearby = PROXIMITY_PATTERN.test(noteLibereText);
+    const zonaSoggiornoComune = wantsNearby && !explicitComune
+      ? detectRequestedComune(extractZonaSoggiornoText(validation.normalized.richiesta_giorno))
+      : null;
+    const targetComune = explicitComune ?? zonaSoggiornoComune;
+    const geoFilteredIncluded = targetComune
+      ? exclusion.included.filter((beach) => beach.comune === targetComune)
+      : exclusion.included;
+    // Se il comune richiesto non trova nessuna spiaggia (dato mancante o comune non riconosciuto),
+    // non blocchiamo la richiesta: si ricade sul catalogo gia' filtrato dalle esclusioni hard.
+    const candidatePool = geoFilteredIncluded.length > 0 ? geoFilteredIncluded : exclusion.included;
+
+    const preScoreResult = preScoreAndFilter(candidatePool, validation.normalized.profile, preFilterCount, {
       extraWantedCategories: anchoredCategories,
       affollamentoMassimo: validation.normalized.affollamento_massimo,
       windDirection

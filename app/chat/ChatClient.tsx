@@ -155,15 +155,9 @@ export function ChatClient() {
   }
 
   function startNewRichiesta() {
-    setState((s) => ({
-      ...s,
-      fascia_oraria: "mattina",
-      camminata_oggi: "media",
-      durata: "mezza_giornata",
-      tipo_richiesta: "mix",
-      affollamento_massimo: "medio",
-      testo_libero: ""
-    }));
+    // Non azzeriamo i campi: restano quelli dell'ultima richiesta, cosi' le chip
+    // appaiono gia' evidenziate come nella versione "test" e l'utente deve solo
+    // confermare o cambiare cio' che gli interessa, non ripartire da zero.
     setErrorMsg(null);
     pushAi("Va bene, dimmi la nuova richiesta di oggi.");
     const first = RICHIESTA_STEPS[0];
@@ -211,20 +205,25 @@ export function ChatClient() {
         <div className="chat-composer">
           {(activeStep.kind === "chip-single" || activeStep.kind === "boolean") && (
             <div className="row">
-              {activeStep.options?.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  className="chip"
-                  onClick={() =>
-                    activeStep.kind === "boolean"
-                      ? chooseBoolean(activeStep, activeIndex, o.value === "true", o.label)
-                      : chooseSingle(activeStep, activeIndex, o.value, o.label)
-                  }
-                >
-                  {o.label}
-                </button>
-              ))}
+              {activeStep.options?.map((o) => {
+                const current = getStepValue(state, activeStep);
+                const isCurrent =
+                  activeStep.kind === "boolean" ? (current ? "true" : "false") === o.value : current === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={`chip ${isCurrent ? "selected" : ""}`}
+                    onClick={() =>
+                      activeStep.kind === "boolean"
+                        ? chooseBoolean(activeStep, activeIndex, o.value === "true", o.label)
+                        : chooseSingle(activeStep, activeIndex, o.value, o.label)
+                    }
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
             </div>
           )}
 
