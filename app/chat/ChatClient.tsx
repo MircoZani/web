@@ -89,7 +89,7 @@ export function ChatClient() {
     const current = STEPS[index];
     const nextStep = STEPS[next];
     if (current.section === "profilo" && nextStep.section === "richiesta") {
-      pushAi("Ora raccontami la tua giornata di oggi.");
+      pushAi("In base alle tue preferenze posso suggerirti alcune spiagge, scrivimi cosa preferisci.");
     }
     beginStep(nextStep, next, currentState);
   }

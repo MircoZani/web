@@ -128,15 +128,20 @@ export const STEPS: StepDef[] = [
     options: CAMMINATA_OPTIONS
   },
   {
-    id: "folla",
+    // Sostituisce la vecchia domanda "folla" (evita/indifferente/cerca_movida): quel campo non
+    // ha mai avuto un ruolo reale nel motore di raccomandazione (solo affollamento_massimo viene
+    // usato per escludere le spiagge troppo affollate, vedi pre-scoring.ts). Chiesta una sola
+    // volta qui in onboarding invece che ad ogni richiesta del giorno: su richiesta di Mirco,
+    // ripeterla ogni volta era ridondante e un po' noioso.
+    id: "affollamento_massimo",
     kind: "chip-single",
     section: "profilo",
-    question: "Quanto ti piace la folla in spiaggia?",
-    shortLabel: "Folla",
+    question: "Qual è il massimo affollamento che tolleri in spiaggia?",
+    shortLabel: "Affollamento",
     options: [
-      { value: "evita", label: "Preferisco luoghi tranquilli" },
-      { value: "indifferente", label: "Mi adatto" },
-      { value: "cerca_movida", label: "Mi piace la vivacità" }
+      { value: "basso", label: "Basso (evita le spiagge più affollate)" },
+      { value: "medio", label: "Medio (esclude solo le più affollate)" },
+      { value: "alto", label: "Alto (nessun limite)" }
     ]
   },
   {
@@ -218,18 +223,6 @@ export const STEPS: StepDef[] = [
       { value: "attivita", label: "Attività" },
       { value: "relax", label: "Relax" },
       { value: "mix", label: "Mix spiaggia + attività" }
-    ]
-  },
-  {
-    id: "affollamento_massimo",
-    kind: "chip-single",
-    section: "richiesta",
-    question: "Quanto affollamento sei disposto a tollerare oggi?",
-    shortLabel: "Affollamento",
-    options: [
-      { value: "basso", label: "Basso (evita le spiagge più affollate)" },
-      { value: "medio", label: "Medio (esclude solo le più affollate)" },
-      { value: "alto", label: "Alto (nessun limite)" }
     ]
   },
   {
