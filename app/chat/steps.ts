@@ -180,56 +180,17 @@ export const STEPS: StepDef[] = [
       { value: "true", label: "Sì, includi spiagge naturiste" }
     ]
   },
-  {
-    id: "fascia_oraria",
-    kind: "chip-single",
-    section: "richiesta",
-    question: "Perfetto, ho tutto quello che mi serve. In che fascia oraria vuoi andare oggi?",
-    shortLabel: "Fascia oraria",
-    options: [
-      { value: "mattina", label: "Mattina (fino alle 13)" },
-      { value: "pomeriggio", label: "Pomeriggio (dopo le 13)" },
-      { value: "tutta_giornata", label: "Tutta la giornata" }
-    ]
-  },
-  {
-    id: "camminata_oggi",
-    kind: "chip-single",
-    section: "richiesta",
-    question: "Quanto sei disposto a camminare oggi?",
-    shortLabel: "Camminata oggi",
-    options: CAMMINATA_OPTIONS
-  },
-  {
-    id: "durata",
-    kind: "chip-single",
-    section: "richiesta",
-    question: "Quanto tempo hai a disposizione?",
-    shortLabel: "Durata",
-    options: [
-      { value: "pochi_ore", label: "Poche ore" },
-      { value: "mezza_giornata", label: "Mezza giornata" },
-      { value: "giornata_intera", label: "Giornata intera" }
-    ]
-  },
-  {
-    id: "tipo_richiesta",
-    kind: "chip-single",
-    section: "richiesta",
-    question: "Cosa cerchi oggi?",
-    shortLabel: "Tipo di richiesta",
-    options: [
-      { value: "spiaggia", label: "Spiaggia" },
-      { value: "attivita", label: "Attività" },
-      { value: "relax", label: "Relax" },
-      { value: "mix", label: "Mix spiaggia + attività" }
-    ]
-  },
+  // Dopo l'onboarding NESSUNA domanda: solo il messaggio libero. "camminata_oggi" e
+  // "tipo_richiesta" sono stati tolti (su richiesta esplicita di Mirco) invece di essere
+  // promossi a domanda di profilo, perche' erano gia' ridondanti — "camminata_oggi" con
+  // "mobilita_livello" (stessa cosa, chiesta due volte), "tipo_richiesta" con il testo libero
+  // stesso (che dice sempre meglio cosa si cerca di una scelta a 4 opzioni generiche). Vengono
+  // derivati automaticamente in ChatClient.handleSubmit invece di sparire dal contratto dati.
   {
     id: "testo_libero",
     kind: "text",
     section: "richiesta",
-    question: "Vuoi aggiungere qualche nota? È facoltativo.",
+    question: "In base alle tue preferenze posso suggerirti alcune spiagge: scrivimi cosa preferisci per oggi.",
     shortLabel: "Note",
     placeholder: "Es. Vorrei acqua calma, ideale per snorkeling…",
     required: false

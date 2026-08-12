@@ -86,11 +86,9 @@ export function ChatClient() {
       void handleSubmit(currentState);
       return;
     }
-    const current = STEPS[index];
     const nextStep = STEPS[next];
-    if (current.section === "profilo" && nextStep.section === "richiesta") {
-      pushAi("In base alle tue preferenze posso suggerirti alcune spiagge, scrivimi cosa preferisci.");
-    }
+    // Nessun messaggio di transizione qui: dopo l'onboarding l'unica domanda che resta
+    // (testo_libero) lo dice gia' nel proprio testo ("scrivimi cosa preferisci per oggi").
     beginStep(nextStep, next, currentState);
   }
 
@@ -138,17 +136,27 @@ export function ChatClient() {
     loadingIdRef.current = loadingId;
     setTranscript((prev) => [...prev, { id: loadingId, from: "ai", node: "Sto cercando le spiagge migliori per te…" }]);
 
+    // "camminata_oggi" e "tipo_richiesta" non si chiedono piu' (non c'e' una domanda dedicata
+    // in STEPS): li deriviamo qui invece di lasciarli a un valore fisso arbitrario.
+    // camminata_oggi eredita la preferenza generale di mobilita' gia' data in onboarding;
+    // tipo_richiesta resta "mix" perche' e' il testo libero a dire davvero cosa si cerca oggi.
+    const submissionState: ChatState = {
+      ...currentState,
+      camminata_oggi: currentState.mobilita_livello,
+      tipo_richiesta: "mix"
+    };
+
     // Salviamo lo stato corrente cosi' torna precompilato anche nelle pagine
     // classiche di onboarding/richiesta (stesso localStorage, stesso formato).
-    saveProfile(currentState);
-    saveRichiesta(currentState);
+    saveProfile(submissionState);
+    saveRichiesta(submissionState);
 
     try {
-      const richiesta_giorno = buildRichiestaGiornoText(currentState, currentState);
+      const richiesta_giorno = buildRichiestaGiornoText(submissionState, submissionState);
       const data = await fetchRecommendations({
-        profile: toApiProfile(currentState),
+        profile: toApiProfile(submissionState),
         richiesta_giorno,
-        affollamento_massimo: currentState.affollamento_massimo,
+        affollamento_massimo: submissionState.affollamento_massimo,
         limit: 10
       });
       saveResults(data);
@@ -169,7 +177,6 @@ export function ChatClient() {
     // appaiono gia' evidenziate come nella versione "test" e l'utente deve solo
     // confermare o cambiare cio' che gli interessa, non ripartire da zero.
     setErrorMsg(null);
-    pushAi("Va bene, dimmi la nuova richiesta di oggi.");
     const first = RICHIESTA_STEPS[0];
     const idx = STEPS.findIndex((s) => s.id === first.id);
     beginStep(first, idx);
