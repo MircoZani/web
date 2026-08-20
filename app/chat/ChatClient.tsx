@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { RecommendationsResponse } from "@/lib/types";
-import { loadProfile, loadRichiesta, saveProfile, saveRichiesta, saveResults, buildRichiestaGiornoText } from "@/lib/session";
+import {
+  loadProfile,
+  loadRichiesta,
+  saveProfile,
+  saveRichiesta,
+  saveResults,
+  buildRichiestaGiornoText,
+  loadVisitedBeaches,
+  saveVisitedBeaches
+} from "@/lib/session";
 import { fetchRecommendations } from "@/lib/api";
 import { renderMarkdown } from "@/lib/markdown";
 import {
@@ -24,7 +33,7 @@ interface TranscriptItem {
   node: React.ReactNode;
 }
 
-type Phase = "flow" | "loading" | "result" | "error";
+type Phase = "flow" | "loading" | "choose-visited" | "result" | "error";
 
 export function ChatClient() {
   const [state, setState] = useState<ChatState>(emptyChatState);
@@ -35,6 +44,10 @@ export function ChatClient() {
   const [phase, setPhase] = useState<Phase>("flow");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  // Spiagge che l'utente ha detto di aver gia' scelto (vedi lib/session.ts): usate come
+  // contesto morbido nelle richieste successive, non come esclusione rigida nel codice.
+  const [visitedBeaches, setVisitedBeaches] = useState<string[]>([]);
+  const [lastRecommendedNames, setLastRecommendedNames] = useState<string[]>([]);
 
   const idRef = useRef(0);
   const nextId = () => `m-${idRef.current++}`;
@@ -59,6 +72,7 @@ export function ChatClient() {
     const savedRichiesta = loadRichiesta();
     const merged: ChatState = { ...emptyChatState(), ...(savedProfile ?? {}), ...(savedRichiesta ?? {}) };
     setState(merged);
+    setVisitedBeaches(loadVisitedBeaches());
     beginStep(STEPS[0], 0, merged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +166,14 @@ export function ChatClient() {
     saveRichiesta(submissionState);
 
     try {
-      const richiesta_giorno = buildRichiestaGiornoText(submissionState, submissionState);
+      const base = buildRichiestaGiornoText(submissionState, submissionState);
+      // Contesto morbido, non esclusione nel codice: l'AI ne tiene conto ma resta libera di
+      // riproporre una spiaggia gia' vista se e' davvero la scelta giusta per questa richiesta
+      // (vedi discussione con Mirco: un'esclusione rigida sarebbe stata troppo drastica).
+      const richiesta_giorno =
+        visitedBeaches.length > 0
+          ? `${base} Spiagge che l'utente ha gia' visitato in uscite precedenti: ${visitedBeaches.join(", ")}.`
+          : base;
       const data = await fetchRecommendations({
         profile: toApiProfile(submissionState),
         richiesta_giorno,
@@ -162,7 +183,14 @@ export function ChatClient() {
       saveResults(data);
       setTranscript((prev) => prev.filter((t) => t.id !== loadingIdRef.current));
       pushAi(<ResultBubble data={data} />);
-      setPhase("result");
+      if (data.recommendations.length > 0) {
+        const names = Array.from(new Set(data.recommendations.map((r) => r.nome)));
+        setLastRecommendedNames(names);
+        pushAi("Indicami quale hai scelto, così la salvo come già vista.");
+        setPhase("choose-visited");
+      } else {
+        setPhase("result");
+      }
     } catch (e) {
       setTranscript((prev) => prev.filter((t) => t.id !== loadingIdRef.current));
       const msg = e instanceof Error ? e.message : "Errore di rete";
@@ -170,6 +198,18 @@ export function ChatClient() {
       pushAi(`Non sono riuscito a completare la richiesta (${msg}).`);
       setPhase("error");
     }
+  }
+
+  function chooseVisited(name: string | null) {
+    if (name) {
+      const updated = Array.from(new Set([...visitedBeaches, name]));
+      setVisitedBeaches(updated);
+      saveVisitedBeaches(updated);
+      pushUser(name);
+    } else {
+      pushUser("Salta");
+    }
+    setPhase("result");
   }
 
   function startNewRichiesta() {
@@ -292,6 +332,21 @@ export function ChatClient() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {phase === "choose-visited" && (
+        <div className="chat-composer">
+          <div className="row">
+            {lastRecommendedNames.map((name) => (
+              <button key={name} type="button" className="chip" onClick={() => chooseVisited(name)}>
+                {name}
+              </button>
+            ))}
+            <button type="button" className="chip" onClick={() => chooseVisited(null)}>
+              Salta
+            </button>
+          </div>
         </div>
       )}
 

@@ -3,6 +3,7 @@ import type { OnboardingProfile, RichiestaGiorno, RecommendationsResponse } from
 const KEY_PROFILE = "yourelba_profile";
 const KEY_RICHIESTA = "yourelba_richiesta";
 const KEY_RESULTS = "yourelba_results";
+const KEY_VISITED_BEACHES = "yourelba_visited_beaches";
 
 export function saveProfile(p: OnboardingProfile): void {
   if (typeof window === "undefined") return;
@@ -49,6 +50,28 @@ export function loadResults(): RecommendationsResponse | null {
     return JSON.parse(raw) as RecommendationsResponse;
   } catch {
     return null;
+  }
+}
+
+// Spiagge che l'utente ha detto di aver gia' scelto/visitato (route /chat). Elenco che cresce
+// nel tempo, usato come contesto "morbido" nelle richieste successive (l'AI ne tiene conto ma
+// puo' comunque riproporle se sono davvero la scelta giusta per una richiesta diversa) invece di
+// un'esclusione rigida nel codice: una spiaggia vista in una sessione precedente potrebbe tornare
+// utile con una richiesta diversa.
+export function saveVisitedBeaches(names: string[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY_VISITED_BEACHES, JSON.stringify(names));
+}
+
+export function loadVisitedBeaches(): string[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(KEY_VISITED_BEACHES);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
   }
 }
 
