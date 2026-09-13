@@ -53,7 +53,11 @@ export function ChatClient() {
   const nextId = () => `m-${idRef.current++}`;
   const loadingIdRef = useRef<string | null>(null);
   const initedRef = useRef(false);
-  const threadEndRef = useRef<HTMLDivElement | null>(null);
+  // Riferimento all'ultimo messaggio (non a un div vuoto dopo tutti i messaggi): serve per far
+  // scorrere l'inizio del nuovo messaggio in cima all'area visibile, non la sua fine. Con
+  // risposte lunghe (elenco spiagge) scrollIntoView({block:"end"}) sul vecchio ref mostrava
+  // subito l'ultima riga, costringendo l'utente a scorrere indietro per leggere dall'inizio.
+  const lastMessageRef = useRef<HTMLDivElement | null>(null);
 
   const pushAi = (node: React.ReactNode) => {
     setTranscript((prev) => [...prev, { id: nextId(), from: "ai", node }]);
@@ -78,7 +82,10 @@ export function ChatClient() {
   }, []);
 
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // block:"start" allinea l'INIZIO del nuovo messaggio in cima all'area visibile, cosi'
+    // l'utente legge una risposta lunga dal principio e scorre lui stesso per continuare,
+    // invece di ritrovarsi gia' in fondo.
+    lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [transcript, phase]);
 
   function beginStep(step: StepDef, index: number, prefillState?: ChatState) {
@@ -250,12 +257,15 @@ export function ChatClient() {
       </div>
 
       <div className="chat-thread">
-        {transcript.map((item) => (
-          <div key={item.id} className={`chat-bubble ${item.from}`}>
+        {transcript.map((item, index) => (
+          <div
+            key={item.id}
+            ref={index === transcript.length - 1 ? lastMessageRef : undefined}
+            className={`chat-bubble ${item.from}`}
+          >
             {item.node}
           </div>
         ))}
-        <div ref={threadEndRef} />
       </div>
 
       {activeStep && (
