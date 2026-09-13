@@ -33,6 +33,23 @@ interface TranscriptItem {
   node: React.ReactNode;
 }
 
+// Rimuove eventuali doppioni per spiaggia_id mantenendo il primo (l'ordine dato dal server e'
+// gia' quello corretto, vedi ai-ranking.ts) — rete di sicurezza nel caso l'AI di ranking
+// restituisca lo stesso id due volte, cosi' le card mostrate e le chip "quale hai scelto"
+// restano garantite identiche per costruzione, non per coincidenza.
+function dedupeRecommendationsById(
+  recommendations: RecommendationsResponse["recommendations"]
+): RecommendationsResponse["recommendations"] {
+  const seen = new Set<string>();
+  const result: RecommendationsResponse["recommendations"] = [];
+  for (const rec of recommendations) {
+    if (seen.has(rec.spiaggia_id)) continue;
+    seen.add(rec.spiaggia_id);
+    result.push(rec);
+  }
+  return result;
+}
+
 type Phase = "flow" | "loading" | "choose-visited" | "result" | "error";
 
 export function ChatClient() {
@@ -204,11 +221,14 @@ export function ChatClient() {
         limit: 10
       });
       saveResults(data);
+      // Deduplicata UNA VOLTA sola (per spiaggia_id) e riusata sia per le card mostrate nel
+      // messaggio sia per le chip "quale hai scelto": stessa fonte per entrambe, cosi' i nomi
+      // proposti e i nomi cliccabili coincidono sempre per costruzione, non per coincidenza.
+      const dedupedRecommendations = dedupeRecommendationsById(data.recommendations);
       setTranscript((prev) => prev.filter((t) => t.id !== loadingIdRef.current));
-      pushAi(<ResultBubble data={data} />);
-      if (data.recommendations.length > 0) {
-        const names = Array.from(new Set(data.recommendations.map((r) => r.nome)));
-        setLastRecommendedNames(names);
+      pushAi(<ResultBubble data={{ ...data, recommendations: dedupedRecommendations }} />);
+      if (dedupedRecommendations.length > 0) {
+        setLastRecommendedNames(dedupedRecommendations.map((r) => r.nome));
         pushAi("Indicami quale hai scelto, così la salvo come già vista.");
         setPhase("choose-visited");
       } else {
@@ -403,8 +423,13 @@ function ResultBubble({ data }: { data: RecommendationsResponse }) {
       <div className="conversation">{renderMarkdown(data.final_response)}</div>
       {data.recommendations.length > 0 && (
         <div className="chat-rec-list">
-          {data.recommendations.slice(0, 5).map((rec, i) => (
-            <div key={`${rec.spiaggia_id}-${i}`} className="chat-rec-card">
+          {/* Nessun taglio a 5: il testo sopra (final_response) descrive gia' TUTTE le spiagge
+              dello shortlist (vedi perBeachContentInstruction in conversation-layer/index.ts), e
+              l'elenco "quale hai scelto" sotto (lastRecommendedNames) le include gia' tutte —
+              tagliare qui a 5 creava un disallineamento: card visibili < spiagge davvero
+              suggerite e proposte come "gia' vista". */}
+          {data.recommendations.map((rec, i) => (
+            <div key={rec.spiaggia_id} className="chat-rec-card">
               <strong>
                 {i + 1}. {rec.nome}
               </strong>
