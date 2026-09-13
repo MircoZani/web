@@ -429,8 +429,20 @@ export async function buildRecommendationsResponse(body: unknown): Promise<{
     // 0-3 per categoria curati a mano da Mirco) su tutte le spiagge incluse, e diamo all'AI
     // di ranking solo le migliori, invece di farle giudicare 100+ spiagge in un colpo solo.
     const preFilterCount = Math.min(exclusion.included.length, Math.max(20, effectiveLimit + 10));
-    const anchoredCategories = detectAnchoredCategories(validation.normalized.richiesta_giorno);
-    const windDirection = detectWindDirection(validation.normalized.richiesta_giorno);
+
+    // Filtro geografico deterministico: comune nominato esplicitamente nelle note di oggi, oppure
+    // richiesta di vicinanza ("qui vicino") risolta rispetto alla zona di soggiorno del profilo.
+    const noteLibereText = extractNoteLibereText(validation.normalized.richiesta_giorno);
+
+    // Solo le note libere di oggi, non l'intera richiesta_giorno: quest'ultima inizia sempre con
+    // "[Richiesta del giorno] ... [Contesto] ...", e la parola "Richiesta"/"Contesto" contiene la
+    // sottostringa "est" — che il dizionario venti interpreta come punto cardinale est. Bug reale
+    // osservato: chiedere vento da SUD faceva rilevare EST (perche' "est" dentro "Richiesta"
+    // compare prima di "sud" nel testo), con il filtro che escludeva le spiagge esposte a est
+    // invece di quelle esposte a sud — risultato: le spiagge davvero da evitare (esposte a sud)
+    // restavano candidate e finivano comunque in cima al ranking.
+    const anchoredCategories = detectAnchoredCategories(noteLibereText);
+    const windDirection = detectWindDirection(noteLibereText);
     // Il filtro naturismo legge SOLO il profilo (impostato una volta in onboarding), mai il
     // testo libero di oggi — altrimenti basterebbe scriverlo per aggirare una preferenza gia'
     // impostata. Se pero' la richiesta di oggi lo nomina comunque mentre il profilo lo esclude,
@@ -440,9 +452,6 @@ export async function buildRecommendationsResponse(body: unknown): Promise<{
       /naturis/i.test(validation.normalized.richiesta_giorno) &&
       validation.normalized.profile.richiesta_esplicita_naturismo !== true;
 
-    // Filtro geografico deterministico: comune nominato esplicitamente nelle note di oggi, oppure
-    // richiesta di vicinanza ("qui vicino") risolta rispetto alla zona di soggiorno del profilo.
-    const noteLibereText = extractNoteLibereText(validation.normalized.richiesta_giorno);
     const explicitComune = detectRequestedComune(noteLibereText);
     const wantsNearby = PROXIMITY_PATTERN.test(noteLibereText);
     const zonaSoggiornoComune = wantsNearby && !explicitComune

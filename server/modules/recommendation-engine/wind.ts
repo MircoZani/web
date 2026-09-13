@@ -50,10 +50,21 @@ const CARDINAL_WIND_KEYWORDS: Record<string, CardinalDirection> = {
   ovest: "o"
 };
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Restituisce la prima direzione nominata nel testo secondo il dizionario dato (o null),
  * cercando prima i termini composti/piu' lunghi per evitare falsi positivi da sottostringa
  * (es. "sud-ovest" non deve far scattare anche "sud").
+ *
+ * Match a confini di parola (\b), non semplice sottostringa: un controllo naive con
+ * lower.indexOf() faceva scattare "est" (est=e) anche dentro parole come "richiesta" o
+ * "contesto" — bug reale osservato: "est" dentro "[Richiesta del giorno]" (sempre presente
+ * all'inizio del testo, vedi buildRichiestaGiornoText) veniva rilevato PRIMA di un "sud"
+ * nominato piu' avanti nelle note libere, facendo interpretare come vento da est una richiesta
+ * esplicita di vento da sud.
  */
 function extractFirstDirection(text: string, keywords: Record<string, CardinalDirection>): CardinalDirection | null {
   const lower = text.toLowerCase();
@@ -61,9 +72,10 @@ function extractFirstDirection(text: string, keywords: Record<string, CardinalDi
   let bestIndex = Infinity;
   let bestDirection: CardinalDirection | null = null;
   for (const [term, direction] of sorted) {
-    const idx = lower.indexOf(term);
-    if (idx !== -1 && idx < bestIndex) {
-      bestIndex = idx;
+    const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`);
+    const match = pattern.exec(lower);
+    if (match && match.index < bestIndex) {
+      bestIndex = match.index;
       bestDirection = direction;
     }
   }
