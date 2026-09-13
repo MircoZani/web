@@ -53,11 +53,23 @@ export function ChatClient() {
   const nextId = () => `m-${idRef.current++}`;
   const loadingIdRef = useRef<string | null>(null);
   const initedRef = useRef(false);
-  // Riferimento all'ultimo messaggio (non a un div vuoto dopo tutti i messaggi): serve per far
-  // scorrere l'inizio del nuovo messaggio in cima all'area visibile, non la sua fine. Con
-  // risposte lunghe (elenco spiagge) scrollIntoView({block:"end"}) sul vecchio ref mostrava
-  // subito l'ultima riga, costringendo l'utente a scorrere indietro per leggere dall'inizio.
-  const lastMessageRef = useRef<HTMLDivElement | null>(null);
+  // Nodo DOM di ogni messaggio, per id: serve a scorrere fino all'INIZIO del primo messaggio
+  // nuovo (non dell'ultimo, vedi sotto perche' non e' la stessa cosa).
+  const messageNodesRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Id gia' visti nel render precedente: confrontati con quelli attuali per trovare il primo
+  // messaggio davvero nuovo. handleSubmit aggiunge DUE messaggi ai in un solo aggiornamento
+  // (la risposta lunga, poi "Indicami quale hai scelto..."): agganciarsi al semplice "ultimo
+  // messaggio" (approccio precedente, insufficiente) porta al secondo, breve, che si trova
+  // comunque dopo tutto il testo lungo -- risultato quasi identico a scorrere fino in fondo.
+  // Serve invece il PRIMO nuovo (la risposta lunga), cosi' se ne vede l'inizio.
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+
+  function setMessageNodeRef(id: string) {
+    return (node: HTMLDivElement | null) => {
+      if (node) messageNodesRef.current.set(id, node);
+      else messageNodesRef.current.delete(id);
+    };
+  }
 
   const pushAi = (node: React.ReactNode) => {
     setTranscript((prev) => [...prev, { id: nextId(), from: "ai", node }]);
@@ -82,11 +94,15 @@ export function ChatClient() {
   }, []);
 
   useEffect(() => {
-    // block:"start" allinea l'INIZIO del nuovo messaggio in cima all'area visibile, cosi'
-    // l'utente legge una risposta lunga dal principio e scorre lui stesso per continuare,
-    // invece di ritrovarsi gia' in fondo.
-    lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [transcript, phase]);
+    const seen = seenMessageIdsRef.current;
+    const firstNewItem = transcript.find((item) => !seen.has(item.id));
+    seenMessageIdsRef.current = new Set(transcript.map((item) => item.id));
+    // block:"start" allinea l'INIZIO del messaggio in cima all'area visibile, cosi' l'utente
+    // legge una risposta lunga dal principio e scorre lui stesso per continuare, invece di
+    // ritrovarsi gia' in fondo.
+    const node = firstNewItem ? messageNodesRef.current.get(firstNewItem.id) : undefined;
+    node?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [transcript]);
 
   function beginStep(step: StepDef, index: number, prefillState?: ChatState) {
     const s = prefillState ?? state;
@@ -257,12 +273,8 @@ export function ChatClient() {
       </div>
 
       <div className="chat-thread">
-        {transcript.map((item, index) => (
-          <div
-            key={item.id}
-            ref={index === transcript.length - 1 ? lastMessageRef : undefined}
-            className={`chat-bubble ${item.from}`}
-          >
+        {transcript.map((item) => (
+          <div key={item.id} ref={setMessageNodeRef(item.id)} className={`chat-bubble ${item.from}`}>
             {item.node}
           </div>
         ))}
