@@ -96,9 +96,20 @@ function extractZonaSoggiornoText(richiestaGiorno: string): string {
   return match?.[1]?.trim() ?? "";
 }
 
+// L'elenco "spiagge gia' visitate" (vedi ChatClient.tsx) viene appeso DOPO la sezione "Note:"
+// nella stessa stringa richiesta_giorno, come contesto morbido per l'AI di ranking — non e'
+// parte di cio' che l'utente chiede oggi. Senza questo taglio, detectNamedBeachMentions (che
+// legge l'output di questa funzione) tratterebbe una spiaggia gia' visitata come nominata
+// esplicitamente nella richiesta odierna: stesso bug gia' visto per "Zona di soggiorno" (bug
+// reale osservato: "Padulella" tra le gia' visitate ed esposta al vento da nord chiesto oggi
+// faceva rispondere solo con la sua descrizione, ignorando la richiesta vera).
+const VISITED_BEACHES_MARKER = "Spiagge che l'utente ha gia' visitato in uscite precedenti:";
+
 function extractNoteLibereText(richiestaGiorno: string): string {
   const match = /Note:\s*([\s\S]*)$/.exec(richiestaGiorno);
-  return match?.[1]?.trim() ?? "";
+  const raw = match?.[1]?.trim() ?? "";
+  const markerIndex = raw.indexOf(VISITED_BEACHES_MARKER);
+  return (markerIndex >= 0 ? raw.slice(0, markerIndex) : raw).trim();
 }
 
 function toBeachDetail(beach: RecommendationBeach, posizione?: number): ShortlistBeachDetail {
@@ -459,7 +470,14 @@ export async function buildRecommendationsResponse(body: unknown): Promise<{
     // di affollamento/vento. Se una di queste conflitto viene rilevata, il layer di conversazione
     // risponde comunque alla domanda diretta con una descrizione reale, invece di ignorarla o
     // improvvisare un aggiramento (vedi commento in conversation-layer/index.ts).
-    const namedMentions = detectNamedBeachMentions(validation.normalized.richiesta_giorno, beaches);
+    // Solo le note libere di oggi, non l'intera richiesta_giorno: quest'ultima contiene anche
+    // "Zona di soggiorno: ..." che puo' coincidere per caso con un nome di spiaggia reale (es.
+    // "Norsi" e' sia una localita' di soggiorno sia il nome di una spiaggia nel catalogo). Prima
+    // di questo fix, dire "alloggio a Norsi" veniva interpretato come "sto chiedendo della
+    // spiaggia Norsi", e se quella spiaggia risultava esclusa (affollamento/vento) l'intera
+    // risposta collassava nel solo promemoria/descrizione di quella spiaggia, saltando le
+    // raccomandazioni vere (vedi generateConflictOnlyResponse piu' sotto).
+    const namedMentions = detectNamedBeachMentions(noteLibereText, beaches);
     const hardExcludedReasonsById = new Map(exclusion.excluded.map((entry) => [entry.beach.id, entry.reasons]));
     const crowdingExcludedIds = new Set(preScoreResult.crowdingExcludedAll.map((beach) => beach.id));
     const windExcludedIds = new Set(preScoreResult.windExcludedAll.map((beach) => beach.id));
